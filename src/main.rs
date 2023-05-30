@@ -13,9 +13,16 @@ fn main() -> Result<()> {
 
 #[instrument(ret, err)]
 fn num(i: i32) -> Result<i32> {
-    // 基本系。エラーメッセージなしの場合の実装。
-    let result = judge(i).map_err(SampleError::NumError)?;
+    // 🦍さんのおかげでできた。
+    let result = judge(i).map_err(|e| {
+        error!("何かのエラーメッセージ: {:?}", e);
+        SampleError::NumError(e)
+    })?;
     Ok(result)
+
+    // // 基本系。エラーメッセージなしの場合の実装。
+    // let result = judge(i).map_err(SampleError::NumError)?;
+    // Ok(result)
 
     // // パターン１: 一番やりたい事だが、動かない。どうにかすれば動きそうな気がする。
     // let result = judge(i).map_err(|e| {
@@ -63,4 +70,30 @@ enum SampleError {
     NumError(#[from] anyhow::Error),
     #[error("JudgeError: {0}")]
     JudgeError(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    fn initialize_tracing() {
+        INIT.call_once(|| {
+            tracing_subscriber::fmt().init();
+        });
+    }
+    #[test]
+    fn success() {
+        initialize_tracing();
+
+        assert_eq!(1, judge(1).unwrap());
+    }
+
+    #[test]
+    fn fail() {
+        initialize_tracing();
+        let result = judge(10);
+        assert!(result.is_err(), "test");
+    }
 }
